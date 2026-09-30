@@ -10,6 +10,8 @@
 
 数据用 SQLite 持久化，备份为 JSON 导出/导入（全量替换，不需要 CSV）。
 
+> 开发文档：[docs/开发链路.md](docs/开发链路.md) —— 环境搭建 → 开发 → 模拟器调试与自动化验证 → 打包发布的完整链路实录。
+
 ## 功能说明
 
 ### 账单
@@ -105,8 +107,8 @@ npm run tauri build                    # Windows 安装包（NSIS + MSI）
 
 产物位置：
 
-- APK：`src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk`
-- 安装包：`src-tauri/target/release/bundle/nsis/recorder_*_x64-setup.exe`、`bundle/msi/*.msi`
+- APK：`/src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk`
+- 安装包：`/src-tauri/target/release/bundle/nsis/recorder_*_x64-setup.exe`、`bundle/msi/*.msi`
 
 **Android 签名**：`app/build.gradle.kts` 里配了 `signingConfigs.release`，读 `app/recorder-release.keystore`（本地生成的个人签名，已 gitignore，有效期 30 年）；密码默认 `recorder-local`，可用环境变量 `RECORDER_STORE_PASSWORD` / `RECORDER_KEY_PASSWORD` 覆盖。**注意：重新执行 `tauri android init` 会重建 build.gradle.kts，签名配置和 README 末尾的本机补丁都需重打**。换机器构建需重新生成 keystore（`keytool -genkeypair`），否则与已安装应用签名不一致会导致无法覆盖安装。
 
