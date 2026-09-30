@@ -59,8 +59,15 @@ abstract class BuildTask : DefaultTask() {
 
         execOperations.exec {
             workingDir(File(projectDir, rootDirRel))
-            executable(executable)
-            args(args)
+            if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                // Gradle exec 不经 shell，Windows 上无法直接执行 npm/npm.cmd，
+                // 统一交给 cmd.exe 解释执行（本机补丁，重新 android init 后需重打）
+                executable("cmd.exe")
+                args(listOf("/c", executable) + args)
+            } else {
+                executable(executable)
+                args(args)
+            }
             if (logger.isEnabled(LogLevel.DEBUG)) {
                 args("-vv")
             } else if (logger.isEnabled(LogLevel.INFO)) {
