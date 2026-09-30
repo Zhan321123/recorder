@@ -94,8 +94,21 @@ adb disconnect 127.0.0.1:5555
 npm run dev                  # 仅前端（浏览器预览，无数据库）
 npm run tauri dev            # Windows 开发模式
 npm run tauri android dev    # Android 开发模式（需设备在线，首次构建约 20 分钟）
-npm run tauri android build -- --apk   # 出 APK
 ```
+
+## 打包
+
+```bash
+npm run tauri android build -- --apk   # Android 签名 APK（universal 全架构）
+npm run tauri build                    # Windows 安装包（NSIS + MSI）
+```
+
+产物位置：
+
+- APK：`src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk`
+- 安装包：`src-tauri/target/release/bundle/nsis/recorder_*_x64-setup.exe`、`bundle/msi/*.msi`
+
+**Android 签名**：`app/build.gradle.kts` 里配了 `signingConfigs.release`，读 `app/recorder-release.keystore`（本地生成的个人签名，已 gitignore，有效期 30 年）；密码默认 `recorder-local`，可用环境变量 `RECORDER_STORE_PASSWORD` / `RECORDER_KEY_PASSWORD` 覆盖。**注意：重新执行 `tauri android init` 会重建 build.gradle.kts，签名配置和 README 末尾的本机补丁都需重打**。换机器构建需重新生成 keystore（`keytool -genkeypair`），否则与已安装应用签名不一致会导致无法覆盖安装。
 
 ## 数据存储位置
 

@@ -25,6 +25,15 @@ android {
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
     }
+    signingConfigs {
+        create("release") {
+            // 本地个人签名（keystore 已 gitignore）；可用环境变量覆盖密码
+            storeFile = file("recorder-release.keystore")
+            storePassword = System.getenv("RECORDER_STORE_PASSWORD") ?: "recorder-local"
+            keyAlias = "recorder"
+            keyPassword = System.getenv("RECORDER_KEY_PASSWORD") ?: "recorder-local"
+        }
+    }
     buildTypes {
         getByName("debug") {
             applicationIdSuffix = ".debug"
@@ -40,6 +49,7 @@ android {
             }
         }
         getByName("release") {
+            signingConfig = signingConfigs.getByName("release")
             optimization {
                enable = true
             }
