@@ -58,8 +58,10 @@ export default function SettingsPage() {
     setBusy(true);
     try {
       await runImport(preview);
-      setMessage("导入完成，数据已全量替换");
+      setMessage("导入完成，数据已全量替换，正在刷新…");
       setPreview(null);
+      // 全量替换后各模块 store 均为脏数据，直接重载前端
+      setTimeout(() => window.location.reload(), 800);
     } catch (e) {
       setMessage(`导入失败: ${String(e)}（可重新选择备份文件再试）`);
       setPreview(null);
