@@ -1,56 +1,47 @@
 import { useEffect, useState } from "react";
-import { initDb, type DbStatus } from "./db";
-import { exportBackup } from "./backup";
-
-const TABS = ["账单", "班时", "课程表"] as const;
-type Tab = (typeof TABS)[number];
+import TopBar from "./components/TopBar";
+import { initDb } from "./lib/db";
+import BillPage from "./modules/bill/BillPage";
+import WorkPage from "./modules/work/WorkPage";
+import SchedulePage from "./modules/schedule/SchedulePage";
+import SettingsPage from "./settings/SettingsPage";
+import { useUiStore } from "./stores/ui";
 
 export default function App() {
-  const [active, setActive] = useState<Tab>("账单");
-
-  // TEMP: 链路验证 —— SQLite 初始化状态（功能阶段删除）
-  const [dbStatus, setDbStatus] = useState<DbStatus>({
-    ok: false,
-    message: "DB 初始化中…",
-  });
-  // TEMP: 链路验证 —— 导出结果提示（功能阶段删除）
-  const [exportMsg, setExportMsg] = useState("");
+  const tab = useUiStore((s) => s.tab);
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    initDb().then(setDbStatus);
+    initDb()
+      .then(() => setReady(true))
+      .catch((e) => setError(String(e)));
   }, []);
 
-  async function onExportTest() {
-    setExportMsg("导出中…");
-    setExportMsg(await exportBackup());
+  if (error) {
+    return (
+      <div className="flex h-full items-center justify-center p-6">
+        <p className="break-all text-sm text-destructive">数据库初始化失败：{error}</p>
+      </div>
+    );
+  }
+  if (!ready) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <p className="text-sm text-muted-foreground">加载中…</p>
+      </div>
+    );
   }
 
   return (
-    <div className="app">
-      <header className="topbar">
-        <nav className="tabs">
-          {TABS.map((t) => (
-            <button
-              key={t}
-              className={"tab" + (t === active ? " active" : "")}
-              onClick={() => setActive(t)}
-            >
-              {t}
-            </button>
-          ))}
-        </nav>
-        {/* TEMP: 链路验证 UI，功能阶段删除 */}
-        <div className="debug">
-          <span className={dbStatus.ok ? "db-ok" : "db-err"}>
-            {dbStatus.message}
-          </span>
-          <button className="export-test" onClick={onExportTest}>
-            导出测试
-          </button>
-          {exportMsg && <span className="export-msg">{exportMsg}</span>}
-        </div>
-      </header>
-      <main className="content">{/* 里程碑一：内容区留空 */}</main>
+    <div className="flex h-full flex-col">
+      <TopBar />
+      <main className="flex-1 overflow-y-auto">
+        {tab === "bill" && <BillPage />}
+        {tab === "work" && <WorkPage />}
+        {tab === "schedule" && <SchedulePage />}
+        {tab === "settings" && <SettingsPage />}
+      </main>
     </div>
   );
 }
