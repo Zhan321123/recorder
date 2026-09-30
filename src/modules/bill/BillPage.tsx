@@ -40,7 +40,7 @@ export default function BillPage() {
 
   return (
     <div className="relative flex min-h-full flex-col">
-      <div className="flex shrink-0 gap-1 border-b px-2 py-1.5">
+      <div className="sticky top-0 z-10 flex shrink-0 gap-1 border-b bg-background px-2 py-1.5">
         {SUB_TABS.map((t) => (
           <button
             key={t.key}
