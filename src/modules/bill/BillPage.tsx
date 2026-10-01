@@ -65,7 +65,8 @@ export default function BillPage() {
         <button
           onClick={openCreate}
           aria-label="记一笔"
-          className="fixed bottom-6 right-6 z-40 flex size-14 cursor-pointer items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform active:scale-95"
+          // fixed 元素不受 body 的 safe-area padding 影响，需自行避开安卓导航键
+          className="fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-6 z-40 flex size-14 cursor-pointer items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform active:scale-95"
         >
           <Plus className="size-7" />
         </button>
