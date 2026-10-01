@@ -1,7 +1,14 @@
+import { useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, ArrowRightLeft } from "lucide-react";
 import { useBillStore } from "../../stores/bill";
 import { fenToYuan, monthKey } from "../../lib/format";
 import { cn } from "../../lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "../../components/ui/dialog";
 import type { BillRecord, Transfer } from "../../lib/db";
 import type { EditingTarget } from "./RecordEditorDialog";
 
@@ -19,7 +26,10 @@ export function MonthSwitcher({
   month: string;
   onChange: (m: string) => void;
 }) {
-  const [y, mo] = month.split("-");
+  const [y, mo] = month.split("-").map(Number);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerYear, setPickerYear] = useState(y);
+
   return (
     <div className="flex items-center justify-center gap-3 py-2">
       <button
@@ -29,9 +39,15 @@ export function MonthSwitcher({
       >
         <ChevronLeft className="size-5" />
       </button>
-      <span className="min-w-28 text-center text-sm font-medium">
-        {y}年{Number(mo)}月
-      </span>
+      <button
+        onClick={() => {
+          setPickerYear(y);
+          setPickerOpen(true);
+        }}
+        className="min-w-28 cursor-pointer rounded-md px-2 py-1 text-center text-sm font-medium hover:bg-accent"
+      >
+        {y}年{mo}月
+      </button>
       <button
         onClick={() => onChange(shiftMonth(month, 1))}
         className="cursor-pointer rounded-md p-1.5 hover:bg-accent"
@@ -39,8 +55,79 @@ export function MonthSwitcher({
       >
         <ChevronRight className="size-5" />
       </button>
+
+      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle>选择月份</DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setPickerYear(pickerYear - 1)}
+              className="cursor-pointer rounded-md p-1.5 hover:bg-accent"
+              aria-label="上一年"
+            >
+              <ChevronLeft className="size-5" />
+            </button>
+            <span className="text-sm font-medium">{pickerYear}年</span>
+            <button
+              onClick={() => setPickerYear(pickerYear + 1)}
+              className="cursor-pointer rounded-md p-1.5 hover:bg-accent"
+              aria-label="下一年"
+            >
+              <ChevronRight className="size-5" />
+            </button>
+          </div>
+          <div className="grid grid-cols-4 gap-2">
+            {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
+              const key = `${pickerYear}-${String(m).padStart(2, "0")}`;
+              return (
+                <button
+                  key={m}
+                  onClick={() => {
+                    onChange(key);
+                    setPickerOpen(false);
+                  }}
+                  className={cn(
+                    "cursor-pointer rounded-md py-2 text-sm hover:bg-accent",
+                    key === month && "bg-primary text-primary-foreground hover:bg-primary"
+                  )}
+                >
+                  {m}月
+                </button>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
+}
+
+/** 左右滑动切月份：横向位移足够且明显大于纵向时触发，不影响上下滚动 */
+export function useMonthSwipe(
+  month: string,
+  onChange: (m: string) => void
+): {
+  onTouchStart: (e: React.TouchEvent) => void;
+  onTouchEnd: (e: React.TouchEvent) => void;
+} {
+  const start = useRef<{ x: number; y: number } | null>(null);
+  return {
+    onTouchStart: (e) => {
+      start.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    },
+    onTouchEnd: (e) => {
+      const s = start.current;
+      start.current = null;
+      if (!s) return;
+      const dx = e.changedTouches[0].clientX - s.x;
+      const dy = e.changedTouches[0].clientY - s.y;
+      if (Math.abs(dx) >= 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        onChange(shiftMonth(month, dx < 0 ? 1 : -1));
+      }
+    },
+  };
 }
 
 interface DayGroup {
@@ -57,6 +144,7 @@ export default function RecordList({
 }) {
   const { month, records, transfers, accounts, categories } = useBillStore();
   const setMonth = useBillStore((s) => s.setMonth);
+  const swipe = useMonthSwipe(month, setMonth);
 
   const accountName = (id: number) =>
     accounts.find((a) => a.id === id)?.name ?? "?";
@@ -95,7 +183,7 @@ export default function RecordList({
   groups.sort((a, b) => (a.date < b.date ? 1 : -1));
 
   return (
-    <div className="pb-24">
+    <div className="pb-24" {...swipe}>
       <MonthSwitcher month={month} onChange={setMonth} />
 
       <div className="mx-4 mb-2 flex justify-between rounded-lg border bg-card px-4 py-3 text-sm">
