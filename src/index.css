@@ -90,12 +90,19 @@
   }
   body {
     @apply bg-background text-foreground;
-    /* Android 刘海屏安全区 */
-    padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
     /* 移动端禁止长按选中/双击缩放抖动 */
     -webkit-tap-highlight-color: transparent;
     user-select: none;
+  }
+  /*
+   * 安全区 padding 放 #root 而非 body：
+   * Radix 弹窗打开时 react-remove-scroll-bar 会注入样式把 body 的
+   * padding-top 清零（gapMode=margin 的副作用），放 body 会被顶到状态栏下。
+   * （2026-10-01 起 Android 端已改回非沉浸式，env() 为 0，此处仅作防御）
+   */
+  #root {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
   }
   input,
   textarea {

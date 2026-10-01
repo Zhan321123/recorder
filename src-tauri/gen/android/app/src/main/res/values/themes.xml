@@ -1,6 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
+    <!-- 本机补丁：非沉浸式（MainActivity 不调 enableEdgeToEdge），状态栏/导航栏白底深色图标。
+         原因：edge-to-edge 下 react-remove-scroll 清零 body padding 会把界面顶到状态栏下，
+         且 vivo 老 WebView env(safe-area-inset-bottom) 不生效、adjustResize 行为因 ROM 而异。 -->
     <style name="Theme.app" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your theme here. -->
+        <item name="android:statusBarColor">@android:color/white</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">@android:color/white</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">true</item>
     </style>
 </resources>

@@ -113,7 +113,16 @@ npm run tauri build                    # Windows 安装包（NSIS + MSI）
 - APK：`/src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk`
 - 安装包：`/src-tauri/target/release/bundle/nsis/recorder_*_x64-setup.exe`、`bundle/msi/*.msi`
 
-**Android 签名**：`app/build.gradle.kts` 里配了 `signingConfigs.release`，读 `app/recorder-release.keystore`（本地生成的个人签名，已 gitignore，有效期 30 年）；密码默认 `recorder-local`，可用环境变量 `RECORDER_STORE_PASSWORD` / `RECORDER_KEY_PASSWORD` 覆盖。**注意：重新执行 `tauri android init` 会重建 build.gradle.kts，签名配置需重打**；同理 `AndroidManifest.xml` 里手加的 `android:windowSoftInputMode="adjustResize"`（键盘弹起时 WebView 收缩自适应，避免遮挡输入框/顶起界面）也需重打。换机器构建需重新生成 keystore（`keytool -genkeypair`），否则与已安装应用签名不一致会导致无法覆盖安装。
+**Android 签名**：`app/build.gradle.kts` 里配了 `signingConfigs.release`，读 `app/recorder-release.keystore`（本地生成的个人签名，已 gitignore，有效期 30 年）；密码默认 `recorder-local`，可用环境变量 `RECORDER_STORE_PASSWORD` / `RECORDER_KEY_PASSWORD` 覆盖。换机器构建需重新生成 keystore（`keytool -genkeypair`），否则与已安装应用签名不一致会导致无法覆盖安装。
+
+**gen/android 本机补丁**（重新执行 `tauri android init` 会被覆盖，需重打）：
+
+1. `app/build.gradle.kts`：签名配置（见上）
+2. `app/src/main/AndroidManifest.xml`：`android:windowSoftInputMode="adjustResize"`（辅助；主修复在 MainActivity）
+3. `app/src/main/java/com/recorder/app/MainActivity.kt`：不调 `enableEdgeToEdge()`；改为在 WebView 上 `setOnApplyWindowInsetsListener` **消费**系统 insets——状态栏/导航栏/键盘高度转成 WebView 的 margin，视口永远夹在安全区内
+4. `app/src/main/res/values/themes.xml` + `values-night/themes.xml`：状态栏/导航栏白底深色图标
+
+> 为什么不用 edge-to-edge + `env(safe-area-inset-*)` 的前端方案：① Radix 弹窗打开时 react-remove-scroll-bar 会清零 body 的 padding-top，界面被顶到状态栏下（为此安全区 padding 已挪到 #root 作防御）；② 部分 ROM/老 WebView 的 `env(safe-area-inset-bottom)` 恒为 0（实测 vivo S9，FAB 被三大金刚遮挡）；③ edge-to-edge 下 `adjustResize` 键盘收缩行为因 ROM 而异。原生层消费 insets 后三个问题同时解决，前端 env() 全为 0，CSS 无需感知设备差异。
 
 ## 数据存储位置
 
