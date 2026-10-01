@@ -5,7 +5,8 @@
 import Database from "@tauri-apps/plugin-sql";
 
 const DB_PATH = "sqlite:recorder.db";
-export const SCHEMA_VERSION = "1";
+// v2：bill_accounts 新增 initial_cents（账户初始金额）
+export const SCHEMA_VERSION = "2";
 
 let db: Database | null = null;
 let initPromise: Promise<void> | null = null;
@@ -22,6 +23,7 @@ export async function initDb(): Promise<void> {
     db = conn;
     await conn.execute("DROP TABLE IF EXISTS _meta"); // 里程碑一调试表
     await createSchema(conn);
+    await migrate(conn);
     await seedIfEmpty(conn);
   })();
   try {
@@ -43,7 +45,8 @@ async function createSchema(conn: Database): Promise<void> {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       sort INTEGER NOT NULL DEFAULT 0,
-      archived INTEGER NOT NULL DEFAULT 0
+      archived INTEGER NOT NULL DEFAULT 0,
+      initial_cents INTEGER NOT NULL DEFAULT 0
     )`,
     `CREATE TABLE IF NOT EXISTS bill_categories (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -124,6 +127,21 @@ async function createSchema(conn: Database): Promise<void> {
   ];
   for (const sql of statements) {
     await conn.execute(sql);
+  }
+}
+
+/** 老库升级：按 app_meta.schema_version 逐版本迁移（新库建表已是最新结构，跳过） */
+async function migrate(conn: Database): Promise<void> {
+  const rows = await conn.select<{ value: string }[]>(
+    "SELECT value FROM app_meta WHERE key = 'schema_version'"
+  );
+  const version = rows[0]?.value;
+  if (version === "1") {
+    // v1 → v2：账户初始金额
+    await conn.execute(
+      "ALTER TABLE bill_accounts ADD COLUMN initial_cents INTEGER NOT NULL DEFAULT 0"
+    );
+    await conn.execute("UPDATE app_meta SET value = '2' WHERE key = 'schema_version'");
   }
 }
 
@@ -210,6 +228,7 @@ export interface Account {
   name: string;
   sort: number;
   archived: number;
+  initial_cents: number;
 }
 
 export interface Category {

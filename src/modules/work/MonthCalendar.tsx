@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { HolidayUtil, Solar } from "lunar-javascript";
-import { useWorkStore, calcMonthStats } from "../../stores/work";
+import { useWorkStore, calcStats, type MonthStats } from "../../stores/work";
 import { MonthSwitcher, useMonthSwipe } from "../bill/RecordList";
 import { fenToYuan, monthKey, todayStr } from "../../lib/format";
 import { cn } from "../../lib/utils";
@@ -71,7 +71,7 @@ function buildCell(
 }
 
 export default function MonthCalendar() {
-  const { month, days, settings, festivals } = useWorkStore();
+  const { month, days, allDays, settings, festivals } = useWorkStore();
   const setMonth = useWorkStore((s) => s.setMonth);
   const toggleDay = useWorkStore((s) => s.toggleDay);
   const [detailDate, setDetailDate] = useState<string | null>(null);
@@ -98,7 +98,7 @@ export default function MonthCalendar() {
     cells.push({ ...buildCell(ny, nm, d, festivals), inMonth: false });
   }
 
-  const stats = calcMonthStats(month, days, settings);
+  const stats = calcStats(month, allDays, settings);
 
   function onTapCell(c: CellInfo) {
     if (!c.inMonth) {
@@ -143,25 +143,33 @@ export default function MonthCalendar() {
         ))}
       </div>
 
-      <div className="mx-4 mt-3 flex justify-between rounded-lg border bg-card px-4 py-3 text-sm">
-        <span>
-          出勤 <span className="font-semibold">{stats.workDays}</span> 天
-        </span>
-        <span>
-          工时 <span className="font-semibold">{stats.totalHours}</span> h
-        </span>
-        <span>
-          预估收入{" "}
-          <span className="font-semibold text-emerald-600">
-            ¥{fenToYuan(stats.incomeCents)}
-          </span>
-        </span>
+      <div className="mx-4 mt-3 flex flex-col gap-1.5 rounded-lg border bg-card px-4 py-3 text-sm">
+        <StatsRow label="本月" stats={stats.month} />
+        <StatsRow label="本年" stats={stats.year} />
+        <StatsRow label="全部" stats={stats.total} />
       </div>
       <p className="mt-1.5 px-4 text-xs text-muted-foreground">
         点日期标记上班，点已标记的格子可改工时/取消
       </p>
 
       <DayDetailDialog date={detailDate} onClose={() => setDetailDate(null)} />
+    </div>
+  );
+}
+
+function StatsRow({ label, stats }: { label: string; stats: MonthStats }) {
+  // 工时按 REAL 存储，累加可能有浮点尾巴，保留最多 1 位小数
+  const hours = Math.round(stats.totalHours * 10) / 10;
+  return (
+    <div className="flex items-baseline justify-between">
+      <span className="text-muted-foreground">{label}</span>
+      <span>
+        出勤 <span className="font-semibold">{stats.workDays}</span> 天 · 工时{" "}
+        <span className="font-semibold">{hours}</span> h · 收入{" "}
+        <span className="font-semibold text-emerald-600">
+          ¥{fenToYuan(stats.incomeCents)}
+        </span>
+      </span>
     </div>
   );
 }

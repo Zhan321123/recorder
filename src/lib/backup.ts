@@ -18,11 +18,19 @@ interface TableDef {
   columns: string[];
   /** 确认对话框里显示的中文名 */
   label: string;
+  /** 旧备份缺少该列时的默认值（schema 演进兼容，如 v1 无 initial_cents） */
+  defaults?: Record<string, unknown>;
 }
 
 // 顺序即插入顺序：父表在前，子表在后（应用层维护引用顺序）
 const TABLES: TableDef[] = [
-  { key: "billAccounts", table: "bill_accounts", columns: ["id", "name", "sort", "archived"], label: "账户" },
+  {
+    key: "billAccounts",
+    table: "bill_accounts",
+    columns: ["id", "name", "sort", "archived", "initial_cents"],
+    label: "账户",
+    defaults: { initial_cents: 0 },
+  },
   { key: "billCategories", table: "bill_categories", columns: ["id", "name", "type", "sort", "is_builtin"], label: "账单分类" },
   {
     key: "billRecords",
@@ -168,7 +176,10 @@ export async function runImport(preview: ImportPreview): Promise<void> {
     const placeholders = t.columns.map((_, i) => `$${i + 1}`).join(", ");
     const sql = `INSERT INTO ${t.table} (${t.columns.join(", ")}) VALUES (${placeholders})`;
     for (const row of rows) {
-      await db.execute(sql, t.columns.map((c) => row[c] ?? null));
+      await db.execute(
+        sql,
+        t.columns.map((c) => row[c] ?? t.defaults?.[c] ?? null)
+      );
     }
   }
 }

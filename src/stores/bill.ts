@@ -48,7 +48,7 @@ interface BillState {
   addTransfer: (t: TransferInput) => Promise<void>;
   updateTransfer: (id: number, t: TransferInput) => Promise<void>;
   deleteTransfer: (id: number) => Promise<void>;
-  addAccount: (name: string) => Promise<void>;
+  addAccount: (name: string, initialCents?: number) => Promise<void>;
   updateAccount: (id: number, name: string) => Promise<void>;
   setAccountArchived: (id: number, archived: boolean) => Promise<void>;
   /** 被引用时返回错误文案，删除成功返回 null */
@@ -96,7 +96,7 @@ export const useBillStore = create<BillState>((set, get) => ({
       ),
     ]);
 
-    // 余额 = 全部收入 - 全部支出 + 转入 - 转出（全时段）
+    // 余额 = 初始金额 + 全部收入 - 全部支出 + 转入 - 转出（全时段）
     const [recDelta, transIn, transOut] = await Promise.all([
       db.select<{ account_id: number; delta: number }[]>(
         "SELECT account_id, SUM(CASE WHEN type='income' THEN amount_cents ELSE -amount_cents END) AS delta FROM bill_records GROUP BY account_id"
@@ -109,6 +109,7 @@ export const useBillStore = create<BillState>((set, get) => ({
       ),
     ]);
     const balances: Record<number, number> = {};
+    for (const a of accounts) balances[a.id] = a.initial_cents;
     for (const r of recDelta) balances[r.account_id] = (balances[r.account_id] ?? 0) + r.delta;
     for (const r of transIn) balances[r.id] = (balances[r.id] ?? 0) + r.delta;
     for (const r of transOut) balances[r.id] = (balances[r.id] ?? 0) + r.delta;
@@ -159,14 +160,14 @@ export const useBillStore = create<BillState>((set, get) => ({
     await get().refresh();
   },
 
-  addAccount: async (name) => {
+  addAccount: async (name, initialCents = 0) => {
     const max = await getDb().select<{ m: number | null }[]>(
       "SELECT MAX(sort) AS m FROM bill_accounts"
     );
-    await getDb().execute("INSERT INTO bill_accounts (name, sort) VALUES ($1, $2)", [
-      name,
-      (max[0].m ?? 0) + 1,
-    ]);
+    await getDb().execute(
+      "INSERT INTO bill_accounts (name, sort, initial_cents) VALUES ($1, $2, $3)",
+      [name, (max[0].m ?? 0) + 1, initialCents]
+    );
     await get().refresh();
   },
 

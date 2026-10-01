@@ -3,7 +3,7 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Badge } from "../../components/ui/badge";
 import { useBillStore } from "../../stores/bill";
-import { fenToYuan } from "../../lib/format";
+import { fenToYuan, yuanToFen } from "../../lib/format";
 import { cn } from "../../lib/utils";
 
 export default function ManagePage() {
@@ -19,15 +19,23 @@ function AccountSection() {
   const { accounts, balances } = useBillStore();
   const store = useBillStore.getState();
   const [newName, setNewName] = useState("");
+  const [newAmount, setNewAmount] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
   const [error, setError] = useState("");
 
   async function onAdd() {
+    setError("");
     const name = newName.trim();
     if (!name) return;
-    await store.addAccount(name);
+    const cents = newAmount.trim() === "" ? 0 : yuanToFen(newAmount);
+    if (cents === null) {
+      setError("初始金额格式不正确（如 100 或 100.50）");
+      return;
+    }
+    await store.addAccount(name, cents);
     setNewName("");
+    setNewAmount("");
   }
 
   async function onDelete(id: number) {
@@ -113,6 +121,14 @@ function AccountSection() {
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && onAdd()}
             className="h-8"
+          />
+          <Input
+            placeholder="初始金额(元)"
+            inputMode="decimal"
+            value={newAmount}
+            onChange={(e) => setNewAmount(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && onAdd()}
+            className="h-8 w-28 shrink-0"
           />
           <Button size="sm" onClick={onAdd} className="h-8">
             添加
