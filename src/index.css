@@ -3,26 +3,34 @@
 /* shadcn/ui 风格主题（neutral，仅浅色；dark 变体保留以便将来扩展） */
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * 老 WebView 兼容性（2026-09-30 实录）：
+ * vivo S9 系统 WebView 为 Chromium 101 且无法升级，不认识 oklch() 颜色、
+ * color-mix() 透明度、CSS translate 独立属性，表现为界面全无颜色、对话框错位。
+ * 因此主题色全部改用等值 hex，每条注释保留原 oklch 值备查
+ * （若将来放弃老 WebView，可按注释整体换回）。hex 为 Tailwind v4 官方等值色。
+ */
+
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --background: #ffffff; /* 原 oklch(1 0 0) */
+  --foreground: #0a0a0a; /* 原 oklch(0.145 0 0) */
+  --card: #ffffff; /* 原 oklch(1 0 0) */
+  --card-foreground: #0a0a0a; /* 原 oklch(0.145 0 0) */
+  --popover: #ffffff; /* 原 oklch(1 0 0) */
+  --popover-foreground: #0a0a0a; /* 原 oklch(0.145 0 0) */
+  --primary: #171717; /* 原 oklch(0.205 0 0) */
+  --primary-foreground: #fafafa; /* 原 oklch(0.985 0 0) */
+  --secondary: #f5f5f5; /* 原 oklch(0.97 0 0) */
+  --secondary-foreground: #171717; /* 原 oklch(0.205 0 0) */
+  --muted: #f5f5f5; /* 原 oklch(0.97 0 0) */
+  --muted-foreground: #737373; /* 原 oklch(0.556 0 0) */
+  --accent: #f5f5f5; /* 原 oklch(0.97 0 0) */
+  --accent-foreground: #171717; /* 原 oklch(0.205 0 0) */
+  --destructive: #e7000b; /* 原 oklch(0.577 0.245 27.325)，即 red-600 */
+  --border: #e5e5e5; /* 原 oklch(0.922 0 0) */
+  --input: #e5e5e5; /* 原 oklch(0.922 0 0) */
+  --ring: #a3a3a3; /* 原 oklch(0.708 0 0) */
 }
 
 @theme inline {
@@ -48,6 +56,27 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+}
+
+/*
+ * 覆盖 Tailwind v4 默认调色板中本项目实际用到的颜色（默认值是 oklch，
+ * 老 WebView 不认识，会退化为黑色）。仅覆盖 src/ 里用到的；
+ * 今后新用某个调色板颜色时，需同步在此补一行 hex（原值注释备查）。
+ */
+@theme {
+  --color-emerald-50: #ecfdf5; /* 原 oklch(0.979 0.021 166.113) */
+  --color-emerald-100: #d0fae5; /* 原 oklch(0.95 0.052 163.051) */
+  --color-emerald-300: #5ee9b5; /* 原 oklch(0.845 0.143 164.978) */
+  --color-emerald-600: #009966; /* 原 oklch(0.596 0.145 163.225) */
+  --color-emerald-700: #007a55; /* 原 oklch(0.508 0.118 165.612) */
+  --color-red-100: #ffe2e2; /* 原 oklch(0.936 0.032 17.717) */
+  --color-red-500: #fb2c36; /* 原 oklch(0.637 0.237 25.331) */
+  --color-red-600: #e7000b; /* 原 oklch(0.577 0.245 27.325) */
+  --color-rose-500: #ff2056; /* 原 oklch(0.645 0.246 16.439) */
+  --color-violet-600: #7f22fe; /* 原 oklch(0.541 0.281 293.009) */
+  --color-sky-100: #dff2fe; /* 原 oklch(0.952 0.037 236.824) */
+  --color-sky-600: #0084d1; /* 原 oklch(0.588 0.158 241.966) */
+  --color-slate-800: #1d293d; /* 原 oklch(0.279 0.041 260.031) */
 }
 
 @layer base {
