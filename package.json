@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "android:init": "tauri android init && node scripts/apply-android-overlay.mjs",
+    "android:dev": "node scripts/apply-android-overlay.mjs && tauri android dev",
+    "android:build": "node scripts/apply-android-overlay.mjs && tauri android build"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.23",

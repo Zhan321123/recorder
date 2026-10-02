@@ -98,14 +98,16 @@ adb disconnect 127.0.0.1:5555
 ```bash
 npm run dev                  # 仅前端（浏览器预览，无数据库）
 npm run tauri dev            # Windows 开发模式
-npm run tauri android dev    # Android 开发模式（需设备在线，首次构建约 20 分钟）
+npm run android:dev          # Android 开发模式（需设备在线，首次构建约 20 分钟）
 ```
+
+> 克隆仓库或删掉 `src-tauri/gen/android` 后，先执行一次 `npm run android:init`（= `tauri android init` + 自动打本机补丁）。
 
 ## 打包
 
 ```bash
-npm run tauri android build -- --apk   # Android 签名 APK（universal 全架构）
-npm run tauri build                    # Windows 安装包（NSIS + MSI）
+npm run android:build -- --apk   # Android 签名 APK（universal 全架构）
+npm run tauri build              # Windows 安装包（NSIS + MSI）
 ```
 
 产物位置：
@@ -113,14 +115,19 @@ npm run tauri build                    # Windows 安装包（NSIS + MSI）
 - APK：`/src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk`
 - 安装包：`/src-tauri/target/release/bundle/nsis/recorder_*_x64-setup.exe`、`bundle/msi/*.msi`
 
-**Android 签名**：`app/build.gradle.kts` 里配了 `signingConfigs.release`，读 `app/recorder-release.keystore`（本地生成的个人签名，已 gitignore，有效期 30 年）；密码默认 `recorder-local`，可用环境变量 `RECORDER_STORE_PASSWORD` / `RECORDER_KEY_PASSWORD` 覆盖。换机器构建需重新生成 keystore（`keytool -genkeypair`），否则与已安装应用签名不一致会导致无法覆盖安装。
+**Android 签名**：overlay 里的 `app/build.gradle.kts` 配了 `signingConfigs.release`，读 `app/recorder-release.keystore`（本地生成的个人签名，已 gitignore，有效期 30 年）；密码默认 `recorder-local`，可用环境变量 `RECORDER_STORE_PASSWORD` / `RECORDER_KEY_PASSWORD` 覆盖。换机器构建需重新生成 keystore（`keytool -genkeypair`），否则与已安装应用签名不一致会导致无法覆盖安装。
 
-**gen/android 本机补丁**（重新执行 `tauri android init` 会被覆盖，需重打）：
+**gen/android 不纳入版本库**：约 1600 行模板 Kotlin/gradle + 图标由 `tauri android init` 生成，已 gitignore。本机补丁集中在 `src-tauri/android-overlay/`（9 个文件整文件覆盖），`android:init` / `android:dev` / `android:build` 都会自动应用，**不再需要手动重打**：
 
 1. `app/build.gradle.kts`：签名配置（见上）
 2. `app/src/main/AndroidManifest.xml`：`android:windowSoftInputMode="adjustResize"`（辅助；主修复在 MainActivity）
 3. `app/src/main/java/com/recorder/app/MainActivity.kt`：不调 `enableEdgeToEdge()`；改为在 WebView 上 `setOnApplyWindowInsetsListener` **消费**系统 insets——状态栏/导航栏/键盘高度转成 WebView 的 margin，视口永远夹在安全区内
 4. `app/src/main/res/values/themes.xml` + `values-night/themes.xml`：状态栏/导航栏白底深色图标
+5. `build.gradle.kts` + `buildSrc/build.gradle.kts`：阿里云 maven 镜像（中央仓库 TLS 被拦截）
+6. `gradle.properties`：`kotlin.incremental=false`（跨盘符增量编译崩溃）
+7. `buildSrc/.../BuildTask.kt`：Windows 下 npm 经 cmd.exe 执行
+
+> 注意：overlay 是**整文件覆盖**。Tauri 大版本升级后若模板有更新，会被 overlay 盖回旧版，升级后需人工比对一次这 9 个文件。
 
 > 为什么不用 edge-to-edge + `env(safe-area-inset-*)` 的前端方案：① Radix 弹窗打开时 react-remove-scroll-bar 会清零 body 的 padding-top，界面被顶到状态栏下（为此安全区 padding 已挪到 #root 作防御）；② 部分 ROM/老 WebView 的 `env(safe-area-inset-bottom)` 恒为 0（实测 vivo S9，FAB 被三大金刚遮挡）；③ edge-to-edge 下 `adjustResize` 键盘收缩行为因 ROM 而异。原生层消费 insets 后三个问题同时解决，前端 env() 全为 0，CSS 无需感知设备差异。
 

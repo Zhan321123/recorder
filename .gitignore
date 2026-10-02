@@ -8,3 +8,6 @@ vite.config.d.ts
 backup-*.json
 *.keystore
 keystore.properties
+
+# Tauri 生成的安卓工程（npm run android:init 可再生；本机补丁在 src-tauri/android-overlay）
+src-tauri/gen/android/
