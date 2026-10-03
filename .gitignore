@@ -11,3 +11,7 @@ keystore.properties
 
 # Tauri 生成的安卓工程（npm run android:init 可再生；本机补丁在 src-tauri/android-overlay）
 src-tauri/gen/android/
+
+# overlay 目录内跑 gradle 产生的本地产物（overlay 只保留补丁源文件）
+src-tauri/android-overlay/**/.gradle/
+src-tauri/android-overlay/**/build/
