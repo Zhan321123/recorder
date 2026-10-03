@@ -48,7 +48,8 @@ const TABLES: TableDef[] = [
   {
     key: "workSettings",
     table: "work_settings",
-    columns: ["id", "effective_from", "daily_hours", "pay_type", "rate_cents", "created_at"],
+    // v3 起不再计薪；旧备份里的 pay_type/rate_cents 按白名单忽略
+    columns: ["id", "effective_from", "daily_hours", "created_at"],
     label: "班时设置历史",
   },
   { key: "customFestivals", table: "custom_festivals", columns: ["id", "name", "cal_type", "month", "day"], label: "自定义节日" },

@@ -2,21 +2,25 @@ import { useState } from "react";
 import { HolidayUtil, Solar } from "lunar-javascript";
 import { useWorkStore, calcStats, type MonthStats } from "../../stores/work";
 import { MonthSwitcher, useMonthSwipe } from "../bill/RecordList";
-import { fenToYuan, monthKey, todayStr } from "../../lib/format";
+import { monthKey, todayStr } from "../../lib/format";
 import { cn } from "../../lib/utils";
 import type { CustomFestival } from "../../lib/db";
 import DayDetailDialog from "./DayDetailDialog";
 
 const WEEK_HEADER = ["一", "二", "三", "四", "五", "六", "日"];
 
+interface SubLine {
+  text: string;
+  cls: "festival" | "custom" | "normal";
+}
+
 interface CellInfo {
   date: string; // YYYY-MM-DD
   day: number;
   /** 是否当前查看月份；false 为补齐网格的邻月日期（灰显，点击切月） */
   inMonth: boolean;
-  /** 小字：自定义节日 > 公历/农历节日 > 节气 > 农历日 */
-  sub: string;
-  subClass: "festival" | "custom" | "normal";
+  /** 小字标签，一行一个：农历日 → 公历/农历节日 → 节气 → 自定义节日 */
+  subs: SubLine[];
   /** 法定班休 */
   workMark: "work" | "rest" | null;
 }
@@ -31,51 +35,45 @@ function buildCell(
   const lunar = solar.getLunar();
   const date = `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 
-  let sub = "";
-  let subClass: CellInfo["subClass"] = "normal";
+  const subs: SubLine[] = [];
+  const push = (text: string, cls: SubLine["cls"]) => {
+    if (text && !subs.some((s) => s.text === text)) subs.push({ text, cls });
+  };
 
-  // 自定义节日（农历按农历月日匹配，闰月暂不支持；公历按月日）
-  const custom = customs.find((f) =>
-    f.cal_type === "lunar"
-      ? f.month === lunar.getMonth() && f.day === lunar.getDay()
-      : f.month === mo && f.day === d
+  // 农历日（初一显示月份名）
+  push(
+    lunar.getDay() === 1 ? lunar.getMonthInChinese() + "月" : lunar.getDayInChinese(),
+    "normal"
   );
-  const solarFes = solar.getFestivals();
-  const lunarFes = lunar.getFestivals();
-  const jieqi = lunar.getJieQi();
-
-  if (custom) {
-    sub = custom.name;
-    subClass = "custom";
-  } else if (solarFes.length > 0 || lunarFes.length > 0) {
-    sub = [...solarFes, ...lunarFes][0];
-    subClass = "festival";
-  } else if (jieqi) {
-    sub = jieqi;
-  } else {
-    // 初一显示月份名，其余显示农历日
-    sub =
-      lunar.getDay() === 1
-        ? lunar.getMonthInChinese() + "月"
-        : lunar.getDayInChinese();
+  // 公历/农历节日
+  for (const f of solar.getFestivals()) push(f, "festival");
+  for (const f of lunar.getFestivals()) push(f, "festival");
+  // 节气
+  push(lunar.getJieQi(), "normal");
+  // 自定义节日（农历按农历月日匹配，闰月暂不支持；公历按月日）
+  for (const f of customs) {
+    const hit =
+      f.cal_type === "lunar"
+        ? f.month === lunar.getMonth() && f.day === lunar.getDay()
+        : f.month === mo && f.day === d;
+    if (hit) push(f.name, "custom");
   }
 
   const holiday = HolidayUtil.getHoliday(y, mo, d);
   return {
     date,
     day: d,
-    sub,
-    subClass,
+    subs,
     workMark: holiday ? (holiday.isWork() ? "work" : "rest") : null,
   };
 }
 
 export default function MonthCalendar() {
-  const { month, days, allDays, settings, festivals } = useWorkStore();
+  const { month, days, allDays, festivals } = useWorkStore();
   const setMonth = useWorkStore((s) => s.setMonth);
   const toggleDay = useWorkStore((s) => s.toggleDay);
   const [detailDate, setDetailDate] = useState<string | null>(null);
-  const swipe = useMonthSwipe(month, setMonth);
+  const swipe = useMonthSwipe(month, setMonth, { vertical: true, wheel: true });
 
   const [y, mo] = month.split("-").map(Number);
   const daysInMonth = new Date(y, mo, 0).getDate();
@@ -98,7 +96,7 @@ export default function MonthCalendar() {
     cells.push({ ...buildCell(ny, nm, d, festivals), inMonth: false });
   }
 
-  const stats = calcStats(month, allDays, settings);
+  const stats = calcStats(month, allDays);
 
   function onTapCell(c: CellInfo) {
     if (!c.inMonth) {
@@ -118,7 +116,7 @@ export default function MonthCalendar() {
             onClick={() => setMonth(monthKey(new Date()))}
             className="cursor-pointer rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-accent"
           >
-            回到今天
+            回到本月
           </button>
         </div>
       </div>
@@ -149,7 +147,7 @@ export default function MonthCalendar() {
         <StatsRow label="全部" stats={stats.total} />
       </div>
       <p className="mt-1.5 px-4 text-xs text-muted-foreground">
-        点日期标记上班，点已标记的格子可改工时/取消
+        点日期标记上班，点已标记的格子可改工时/取消；滑动或滚轮切换月份
       </p>
 
       <DayDetailDialog date={detailDate} onClose={() => setDetailDate(null)} />
@@ -165,10 +163,7 @@ function StatsRow({ label, stats }: { label: string; stats: MonthStats }) {
       <span className="text-muted-foreground">{label}</span>
       <span>
         出勤 <span className="font-semibold">{stats.workDays}</span> 天 · 工时{" "}
-        <span className="font-semibold">{hours}</span> h · 收入{" "}
-        <span className="font-semibold text-emerald-600">
-          ¥{fenToYuan(stats.incomeCents)}
-        </span>
+        <span className="font-semibold">{hours}</span> h
       </span>
     </div>
   );
@@ -218,16 +213,19 @@ function CalendarCell({
       >
         {cell.day}
       </span>
-      <span
-        className={cn(
-          "max-w-full truncate text-[10px] leading-3.5",
-          cell.subClass === "festival" && "text-rose-500",
-          cell.subClass === "custom" && "font-medium text-violet-600",
-          cell.subClass === "normal" && "text-muted-foreground"
-        )}
-      >
-        {cell.sub}
-      </span>
+      {cell.subs.map((s) => (
+        <span
+          key={s.text}
+          className={cn(
+            "max-w-full truncate text-[10px] leading-3.5",
+            s.cls === "festival" && "text-rose-500",
+            s.cls === "custom" && "font-medium text-violet-600",
+            s.cls === "normal" && "text-muted-foreground"
+          )}
+        >
+          {s.text}
+        </span>
+      ))}
       {worked !== undefined && (
         <span className="text-[10px] leading-3.5 font-medium text-emerald-600">
           ✓{worked}h

@@ -6,7 +6,7 @@ import Database from "@tauri-apps/plugin-sql";
 
 const DB_PATH = "sqlite:recorder.db";
 // v2：bill_accounts 新增 initial_cents（账户初始金额）
-export const SCHEMA_VERSION = "2";
+export const SCHEMA_VERSION = "3";
 
 let db: Database | null = null;
 let initPromise: Promise<void> | null = null;
@@ -87,8 +87,6 @@ async function createSchema(conn: Database): Promise<void> {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       effective_from TEXT NOT NULL,
       daily_hours REAL NOT NULL,
-      pay_type TEXT NOT NULL CHECK(pay_type IN ('hourly','daily','monthly')),
-      rate_cents INTEGER NOT NULL,
       created_at TEXT NOT NULL
     )`,
     `CREATE TABLE IF NOT EXISTS custom_festivals (
@@ -130,7 +128,8 @@ async function createSchema(conn: Database): Promise<void> {
   }
 }
 
-/** 老库升级：按 app_meta.schema_version 逐版本迁移（新库建表已是最新结构，跳过） */
+/** 老库升级：按 app_meta.schema_version 逐版本迁移（新库建表已是最新结构，跳过）。
+ *  每步都用 PRAGMA 探测实际结构，兼容「导入旧备份后 meta 版本回退」的场景 */
 async function migrate(conn: Database): Promise<void> {
   const rows = await conn.select<{ value: string }[]>(
     "SELECT value FROM app_meta WHERE key = 'schema_version'"
@@ -138,10 +137,26 @@ async function migrate(conn: Database): Promise<void> {
   const version = rows[0]?.value;
   if (version === "1") {
     // v1 → v2：账户初始金额
-    await conn.execute(
-      "ALTER TABLE bill_accounts ADD COLUMN initial_cents INTEGER NOT NULL DEFAULT 0"
+    const cols = await conn.select<{ name: string }[]>(
+      "PRAGMA table_info(bill_accounts)"
     );
+    if (!cols.some((c) => c.name === "initial_cents")) {
+      await conn.execute(
+        "ALTER TABLE bill_accounts ADD COLUMN initial_cents INTEGER NOT NULL DEFAULT 0"
+      );
+    }
     await conn.execute("UPDATE app_meta SET value = '2' WHERE key = 'schema_version'");
+  }
+  if (version === "1" || version === "2") {
+    // v2 → v3：班时不再计薪，去掉计薪方式/金额列
+    const cols = await conn.select<{ name: string }[]>(
+      "PRAGMA table_info(work_settings)"
+    );
+    if (cols.some((c) => c.name === "pay_type")) {
+      await conn.execute("ALTER TABLE work_settings DROP COLUMN pay_type");
+      await conn.execute("ALTER TABLE work_settings DROP COLUMN rate_cents");
+    }
+    await conn.execute("UPDATE app_meta SET value = '3' WHERE key = 'schema_version'");
   }
 }
 
@@ -185,9 +200,9 @@ async function seedIfEmpty(conn: Database): Promise<void> {
     "SELECT COUNT(*) AS n FROM work_settings"
   );
   if (settings[0].n === 0) {
-    // 默认 8 小时/天、日薪 0 元，引导用户去班时模块设置
+    // 默认 8 小时/天，引导用户去班时模块设置
     await conn.execute(
-      "INSERT INTO work_settings (effective_from, daily_hours, pay_type, rate_cents, created_at) VALUES ('1970-01-01', 8, 'daily', 0, $1)",
+      "INSERT INTO work_settings (effective_from, daily_hours, created_at) VALUES ('1970-01-01', 8, $1)",
       [now]
     );
   }
@@ -269,14 +284,10 @@ export interface WorkDay {
   updated_at: string;
 }
 
-export type PayType = "hourly" | "daily" | "monthly";
-
 export interface WorkSetting {
   id: number;
   effective_from: string;
   daily_hours: number;
-  pay_type: PayType;
-  rate_cents: number;
   created_at: string;
 }
 

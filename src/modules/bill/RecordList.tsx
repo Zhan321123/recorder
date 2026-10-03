@@ -104,15 +104,19 @@ export function MonthSwitcher({
   );
 }
 
-/** 左右滑动切月份：横向位移足够且明显大于纵向时触发，不影响上下滚动 */
+/** 滑动/滚轮切月份：默认仅左右滑；vertical 开上下滑，wheel 开滚轮（带节流）。
+ *  横向触发要求 |dx| 明显大于 |dy|，纵向反之，互不干扰页面滚动 */
 export function useMonthSwipe(
   month: string,
-  onChange: (m: string) => void
+  onChange: (m: string) => void,
+  opts?: { vertical?: boolean; wheel?: boolean }
 ): {
   onTouchStart: (e: React.TouchEvent) => void;
   onTouchEnd: (e: React.TouchEvent) => void;
+  onWheel?: (e: React.WheelEvent) => void;
 } {
   const start = useRef<{ x: number; y: number } | null>(null);
+  const lastWheel = useRef(0);
   return {
     onTouchStart: (e) => {
       start.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -125,8 +129,20 @@ export function useMonthSwipe(
       const dy = e.changedTouches[0].clientY - s.y;
       if (Math.abs(dx) >= 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
         onChange(shiftMonth(month, dx < 0 ? 1 : -1));
+      } else if (opts?.vertical && Math.abs(dy) >= 60 && Math.abs(dy) > Math.abs(dx) * 1.5) {
+        // 上滑 = 下一月，下滑 = 上一月
+        onChange(shiftMonth(month, dy < 0 ? 1 : -1));
       }
     },
+    onWheel: opts?.wheel
+      ? (e) => {
+          // 滚轮一次 = 切一个月；节流防触控板连续小 delta 连翻多页
+          const now = Date.now();
+          if (Math.abs(e.deltaY) < 24 || now - lastWheel.current < 300) return;
+          lastWheel.current = now;
+          onChange(shiftMonth(month, e.deltaY > 0 ? 1 : -1));
+        }
+      : undefined,
   };
 }
 

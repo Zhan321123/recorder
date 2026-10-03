@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Check } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -111,13 +112,30 @@ export default function CourseCellDialog({
                 key={c || "none"}
                 onClick={() => setColor(c)}
                 className={cn(
-                  "h-8 w-8 cursor-pointer rounded-full border transition-transform",
-                  color === c && "scale-110 ring-2 ring-primary ring-offset-2"
+                  "flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border transition-transform",
+                  color === c && "scale-110"
                 )}
-                style={c ? { backgroundColor: c } : undefined}
+                style={{
+                  ...(c ? { backgroundColor: c } : {}),
+                  // 老 WebView 不支持 @property，tailwind ring 的 box-shadow 变量链会整条失效；
+                  // 用原生 outline + 对勾做选中态，任何版本都可见
+                  ...(color === c
+                    ? { outline: "2px solid var(--primary)", outlineOffset: "2px" }
+                    : {}),
+                }}
                 aria-label={c || "无色"}
               >
-                {!c && <span className="text-xs text-muted-foreground">无</span>}
+                {color === c && c && <Check className="h-4 w-4 text-slate-700" />}
+                {!c && (
+                  <span
+                    className={cn(
+                      "text-xs",
+                      color === c ? "font-medium text-foreground" : "text-muted-foreground"
+                    )}
+                  >
+                    无
+                  </span>
+                )}
               </button>
             ))}
           </div>

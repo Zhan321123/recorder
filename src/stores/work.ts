@@ -2,13 +2,12 @@ import { create } from "zustand";
 import {
   getDb,
   type CustomFestival,
-  type PayType,
   type WorkDay,
   type WorkSetting,
 } from "../lib/db";
 import { monthKey, nowIso, todayStr } from "../lib/format";
 
-/** 某日生效的工资设置：effective_from <= date 的最后一行；无则取最早一行 */
+/** 某日生效的工时设置：effective_from <= date 的最后一行；无则取最早一行 */
 export function settingForDate(settings: WorkSetting[], date: string): WorkSetting | null {
   if (settings.length === 0) return null;
   let best: WorkSetting | null = null;
@@ -23,36 +22,25 @@ export function settingForDate(settings: WorkSetting[], date: string): WorkSetti
 export interface MonthStats {
   workDays: number;
   totalHours: number;
-  incomeCents: number;
 }
 
-/** 月度统计：出勤/工时看标记；收入逐日按当日生效设置计算（月薪按当月天数折算） */
+/** 月度统计：出勤天数与总工时，只看当月标记 */
 export function calcMonthStats(
   month: string, // "YYYY-MM"
-  days: Record<string, WorkDay>,
-  settings: WorkSetting[]
+  days: Record<string, WorkDay>
 ): MonthStats {
   const [y, mo] = month.split("-").map(Number);
   const daysInMonth = new Date(y, mo, 0).getDate();
   let workDays = 0;
   let totalHours = 0;
-  let incomeCents = 0;
   for (let d = 1; d <= daysInMonth; d++) {
-    const ds = `${month}-${String(d).padStart(2, "0")}`;
-    const s = settingForDate(settings, ds);
-    const marked = days[ds];
+    const marked = days[`${month}-${String(d).padStart(2, "0")}`];
     if (marked) {
       workDays++;
       totalHours += marked.hours;
     }
-    if (!s) continue;
-    if (s.pay_type === "monthly") {
-      incomeCents += s.rate_cents / daysInMonth;
-    } else if (marked) {
-      incomeCents += s.pay_type === "hourly" ? marked.hours * s.rate_cents : s.rate_cents;
-    }
   }
-  return { workDays, totalHours, incomeCents: Math.round(incomeCents) };
+  return { workDays, totalHours };
 }
 
 export interface WorkStats {
@@ -63,21 +51,19 @@ export interface WorkStats {
 
 /**
  * 三段统计，口径统一跟随「查看月份」：
- * 本月 = 查看月；本年 = 查看月所在年 1–12 月（未来月份按预估计入）；
- * 全部 = 从最早有设置/记录的月份累计到查看月。
+ * 本月 = 查看月；本年 = 查看月所在年 1–12 月；
+ * 全部 = 从最早有记录的月份累计到查看月。
  */
 export function calcStats(
   month: string,
-  allDays: Record<string, WorkDay>,
-  settings: WorkSetting[]
+  allDays: Record<string, WorkDay>
 ): WorkStats {
   const sum = (months: string[]): MonthStats => {
-    const r = { workDays: 0, totalHours: 0, incomeCents: 0 };
+    const r = { workDays: 0, totalHours: 0 };
     for (const m of months) {
-      const s = calcMonthStats(m, allDays, settings);
+      const s = calcMonthStats(m, allDays);
       r.workDays += s.workDays;
       r.totalHours += s.totalHours;
-      r.incomeCents += s.incomeCents;
     }
     return r;
   };
@@ -88,12 +74,8 @@ export function calcStats(
     (_, i) => `${year}-${String(i + 1).padStart(2, "0")}`
   );
 
-  // 全部：最早月份 = min(最早设置生效月, 最早记录月, 查看月)
+  // 全部：最早月份 = min(最早记录月, 查看月)
   let earliest = month;
-  for (const s of settings) {
-    const m = s.effective_from.slice(0, 7);
-    if (m < earliest) earliest = m;
-  }
   for (const d of Object.keys(allDays)) {
     const m = d.slice(0, 7);
     if (m < earliest) earliest = m;
@@ -109,7 +91,7 @@ export function calcStats(
   }
 
   return {
-    month: calcMonthStats(month, allDays, settings),
+    month: calcMonthStats(month, allDays),
     year: sum(yearMonths),
     total: sum(allMonths),
   };
@@ -128,11 +110,7 @@ interface WorkState {
   toggleDay: (date: string) => Promise<void>;
   upsertDay: (date: string, hours: number, note: string) => Promise<void>;
   removeDay: (date: string) => Promise<void>;
-  saveSettings: (input: {
-    daily_hours: number;
-    pay_type: PayType;
-    rate_cents: number;
-  }) => Promise<void>;
+  saveSettings: (input: { daily_hours: number }) => Promise<void>;
   addFestival: (input: {
     name: string;
     cal_type: "lunar" | "solar";
@@ -218,14 +196,14 @@ export const useWorkStore = create<WorkState>((set, get) => ({
     const last = settings[settings.length - 1];
     if (last && last.effective_from === today) {
       // 同一天反复修改：更新当天行，不产生历史碎片
-      await db.execute(
-        "UPDATE work_settings SET daily_hours=$1, pay_type=$2, rate_cents=$3 WHERE id=$4",
-        [input.daily_hours, input.pay_type, input.rate_cents, last.id]
-      );
+      await db.execute("UPDATE work_settings SET daily_hours=$1 WHERE id=$2", [
+        input.daily_hours,
+        last.id,
+      ]);
     } else {
       await db.execute(
-        "INSERT INTO work_settings (effective_from, daily_hours, pay_type, rate_cents, created_at) VALUES ($1,$2,$3,$4,$5)",
-        [today, input.daily_hours, input.pay_type, input.rate_cents, nowIso()]
+        "INSERT INTO work_settings (effective_from, daily_hours, created_at) VALUES ($1,$2,$3)",
+        [today, input.daily_hours, nowIso()]
       );
     }
     await get().refresh();

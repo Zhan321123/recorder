@@ -10,19 +10,8 @@ import {
   CardTitle,
 } from "../../components/ui/card";
 import { settingForDate, useWorkStore } from "../../stores/work";
-import { fenToYuan, todayStr } from "../../lib/format";
+import { todayStr } from "../../lib/format";
 import { cn } from "../../lib/utils";
-import type { PayType } from "../../lib/db";
-
-const PAY_TYPES: { key: PayType; label: string; unit: string }[] = [
-  { key: "hourly", label: "时薪", unit: "元/小时" },
-  { key: "daily", label: "日薪", unit: "元/天" },
-  { key: "monthly", label: "月薪", unit: "元/月" },
-];
-
-export function payTypeLabel(t: PayType): string {
-  return PAY_TYPES.find((p) => p.key === t)?.label ?? t;
-}
 
 export default function WorkSettingsPanel() {
   const { settings } = useWorkStore();
@@ -31,16 +20,12 @@ export default function WorkSettingsPanel() {
   const current = settingForDate(settings, todayStr());
 
   const [hours, setHours] = useState("8");
-  const [payType, setPayType] = useState<PayType>("daily");
-  const [rate, setRate] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (current) {
       setHours(String(current.daily_hours));
-      setPayType(current.pay_type);
-      setRate(fenToYuan(current.rate_cents).replace(/,/g, ""));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -48,16 +33,10 @@ export default function WorkSettingsPanel() {
   async function onSave() {
     setMessage("");
     const h = parseFloat(hours);
-    const r = parseFloat(rate);
     if (!Number.isFinite(h) || h <= 0 || h > 24) return setMessage("日工时需为 0-24 之间的数字");
-    if (!Number.isFinite(r) || r < 0) return setMessage("金额不正确");
     setBusy(true);
     try {
-      await saveSettings({
-        daily_hours: h,
-        pay_type: payType,
-        rate_cents: Math.round(r * 100),
-      });
+      await saveSettings({ daily_hours: h });
       setMessage("已保存，从今天起生效，历史记录不受影响");
     } catch (e) {
       setMessage(String(e));
@@ -70,9 +49,9 @@ export default function WorkSettingsPanel() {
     <div className="flex flex-col gap-4 p-4 pb-8">
       <Card>
         <CardHeader>
-          <CardTitle>工时与工资</CardTitle>
+          <CardTitle>工时设置</CardTitle>
           <CardDescription>
-            修改后从今天起生效；过去的工时和收入仍按当时设置计算
+            修改后从今天起生效；过去的工时仍按当时设置快照
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
@@ -82,32 +61,6 @@ export default function WorkSettingsPanel() {
               inputMode="decimal"
               value={hours}
               onChange={(e) => setHours(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label>计薪方式</Label>
-            <div className="grid grid-cols-3 gap-1 rounded-lg bg-secondary p-1">
-              {PAY_TYPES.map((p) => (
-                <button
-                  key={p.key}
-                  onClick={() => setPayType(p.key)}
-                  className={cn(
-                    "cursor-pointer rounded-md py-1.5 text-sm text-muted-foreground transition-colors",
-                    payType === p.key && "bg-background font-medium text-foreground shadow-sm"
-                  )}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label>金额（{PAY_TYPES.find((p) => p.key === payType)?.unit}）</Label>
-            <Input
-              inputMode="decimal"
-              placeholder="0.00"
-              value={rate}
-              onChange={(e) => setRate(e.target.value)}
             />
           </div>
           <Button onClick={onSave} disabled={busy}>
@@ -131,10 +84,7 @@ export default function WorkSettingsPanel() {
               className="flex items-center justify-between border-b py-2 last:border-b-0"
             >
               <span className="text-muted-foreground">{s.effective_from} 起</span>
-              <span>
-                {s.daily_hours}h/天 · {payTypeLabel(s.pay_type)} ¥
-                {fenToYuan(s.rate_cents)}
-              </span>
+              <span>{s.daily_hours}h/天</span>
             </div>
           ))}
         </CardContent>

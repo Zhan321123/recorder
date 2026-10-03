@@ -13,15 +13,17 @@ const DialogPortal = DialogPrimitive.Portal;
 // rgba 直写视觉效果相同。
 // 注意：注释里不要写工具类原名——Tailwind 扫描器连注释也会提取，
 // 写了原名会在产物里重新生成对应的死样式。
-const DialogOverlay = ({
-  className,
-  ...props
-}: React.ComponentProps<typeof DialogPrimitive.Overlay>) => (
+const DialogOverlay = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Overlay>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
+>(({ className, ...props }, ref) => (
   <DialogPrimitive.Overlay
+    ref={ref}
     className={cn("fixed inset-0 z-50 bg-[rgba(0,0,0,0.5)]", className)}
     {...props}
   />
-);
+));
+DialogOverlay.displayName = "DialogOverlay";
 
 // 居中原先使用 Tailwind 的位移类（x/y 各负二分之一），Tailwind v4 会把它编译为
 // CSS 独立 translate 属性（Chrome 104+），Chromium 101 老 WebView 不支持导致
