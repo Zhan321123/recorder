@@ -13,7 +13,7 @@ interface ScheduleState {
   loaded: boolean;
   semesters: Semester[];
   activeId: number | null;
-  slots: ScheduleSlot[]; // 当前学期，按 sort 升序
+  slots: ScheduleSlot[]; // 当前学期，按开始时间升序
   courses: ScheduleCourse[]; // 当前学期
   init: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -24,7 +24,6 @@ interface ScheduleState {
   addSlot: (label: string, start: string, end: string) => Promise<void>;
   updateSlot: (id: number, label: string, start: string, end: string) => Promise<void>;
   deleteSlot: (id: number) => Promise<void>;
-  moveSlot: (id: number, dir: -1 | 1) => Promise<void>;
   setCourse: (slotId: number, weekday: number, name: string, color: string) => Promise<void>;
   clearCourse: (id: number) => Promise<void>;
 }
@@ -56,7 +55,7 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
     if (activeId !== null) {
       [slots, courses] = await Promise.all([
         db.select<ScheduleSlot[]>(
-          "SELECT * FROM schedule_slots WHERE semester_id=$1 ORDER BY sort, id",
+          "SELECT * FROM schedule_slots WHERE semester_id=$1 ORDER BY start_time, id",
           [activeId]
         ),
         db.select<ScheduleCourse[]>(
@@ -102,19 +101,25 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
   addSlot: async (label, start, end) => {
     const { activeId, slots } = get();
     if (activeId === null) return;
+    assertNoSlotConflict(slots, start, end);
+    const db = getDb();
     const sort = (slots[slots.length - 1]?.sort ?? 0) + 1;
-    await getDb().execute(
+    await db.execute(
       "INSERT INTO schedule_slots (semester_id, label, start_time, end_time, sort) VALUES ($1,$2,$3,$4,$5)",
       [activeId, label, start, end, sort]
     );
+    await resortSlots(activeId);
     await get().refresh();
   },
 
   updateSlot: async (id, label, start, end) => {
+    const { activeId, slots } = get();
+    assertNoSlotConflict(slots, start, end, id);
     await getDb().execute(
       "UPDATE schedule_slots SET label=$1, start_time=$2, end_time=$3 WHERE id=$4",
       [label, start, end, id]
     );
+    if (activeId !== null) await resortSlots(activeId);
     await get().refresh();
   },
 
@@ -122,24 +127,6 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
     const db = getDb();
     await db.execute("DELETE FROM schedule_courses WHERE slot_id=$1", [id]);
     await db.execute("DELETE FROM schedule_slots WHERE id=$1", [id]);
-    await get().refresh();
-  },
-
-  moveSlot: async (id, dir) => {
-    const { slots } = get();
-    const i = slots.findIndex((s) => s.id === id);
-    const j = i + dir;
-    if (i < 0 || j < 0 || j >= slots.length) return;
-    const db = getDb();
-    // 交换两行的 sort（sort 可能不连续，直接互换值最稳）
-    await db.execute("UPDATE schedule_slots SET sort=$1 WHERE id=$2", [
-      slots[j].sort,
-      slots[i].id,
-    ]);
-    await db.execute("UPDATE schedule_slots SET sort=$1 WHERE id=$2", [
-      slots[i].sort,
-      slots[j].id,
-    ]);
     await get().refresh();
   },
 
@@ -166,6 +153,33 @@ export function slotAtTime(slots: ScheduleSlot[], hhmm: string): ScheduleSlot | 
     if (s.start_time <= hhmm && hhmm < s.end_time) return s;
   }
   return null;
+}
+
+/** 槽位时间段冲突校验：半开区间 [start,end) 与任一已有槽位重叠即冲突，首尾相接允许 */
+function assertNoSlotConflict(
+  slots: ScheduleSlot[],
+  start: string,
+  end: string,
+  excludeId?: number
+): void {
+  const c = slots.find(
+    (s) => s.id !== excludeId && start < s.end_time && s.start_time < end
+  );
+  if (c) {
+    throw new Error(`与「${c.label} ${c.start_time}-${c.end_time}」时间冲突`);
+  }
+}
+
+/** 按开始时间重排 sort，维持「sort = 时间顺序」不变量（备份仍按 sort 恢复） */
+async function resortSlots(semesterId: number): Promise<void> {
+  const db = getDb();
+  const rows = await db.select<{ id: number }[]>(
+    "SELECT id FROM schedule_slots WHERE semester_id=$1 ORDER BY start_time, id",
+    [semesterId]
+  );
+  for (let i = 0; i < rows.length; i++) {
+    await db.execute("UPDATE schedule_slots SET sort=$1 WHERE id=$2", [i, rows[i].id]);
+  }
 }
 
 /** 今天对应的 weekday 列号（1=周一 … 7=周日） */

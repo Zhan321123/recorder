@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import { Plus } from "lucide-react";
 import { useScheduleStore, slotAtTime, todayWeekday } from "../../stores/schedule";
 import { cn } from "../../lib/utils";
-import { Button } from "../../components/ui/button";
 import type { ScheduleCourse, ScheduleSlot } from "../../lib/db";
 import CourseCellDialog, { COURSE_COLORS } from "./CourseCellDialog";
+import SlotEditDialog from "./SlotEditDialog";
 
 const WEEK_HEADER = ["一", "二", "三", "四", "五", "六", "日"];
 
@@ -18,10 +19,11 @@ function nowHhmm(): string {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-export default function WeekGrid({ onEditSlots }: { onEditSlots: () => void }) {
+export default function WeekGrid() {
   const slots = useScheduleStore((s) => s.slots);
   const courses = useScheduleStore((s) => s.courses);
   const [target, setTarget] = useState<CellTarget | null>(null);
+  const [editingSlot, setEditingSlot] = useState<ScheduleSlot | "new" | null>(null);
   const [now, setNow] = useState(nowHhmm());
 
   // 当前时间高亮：每分钟刷新
@@ -39,48 +41,53 @@ export default function WeekGrid({ onEditSlots }: { onEditSlots: () => void }) {
     return m;
   }, [courses]);
 
-  if (slots.length === 0) {
-    return (
-      <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
-        <p className="text-sm text-muted-foreground">
-          还没有时间槽。先设置一天的时间划分，
+  // 一屏放下七天：7 列 minmax(0,1fr) 均分，不限制最小宽度
+  const gridCols = "grid grid-cols-[92px_repeat(7,minmax(0,1fr))] gap-1";
+
+  return (
+    <div className="px-2 pt-2 pb-6">
+      {/* 表头：左上角 + 添加时间槽；周一~周日，今天列高亮 */}
+      <div className={gridCols}>
+        <button
+          onClick={() => setEditingSlot("new")}
+          aria-label="添加时间槽"
+          className="flex cursor-pointer items-center justify-center rounded-md border border-dashed text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+        {WEEK_HEADER.map((w, i) => (
+          <div
+            key={w}
+            className={cn(
+              "rounded-md py-1 text-center text-xs",
+              i + 1 === todayWd
+                ? "bg-primary font-medium text-primary-foreground"
+                : "text-muted-foreground"
+            )}
+          >
+            周{w}
+          </div>
+        ))}
+      </div>
+
+      {slots.length === 0 ? (
+        <p className="mt-6 px-6 text-center text-sm text-muted-foreground">
+          还没有时间槽。点左上角 + 把一天划分为若干时间段，
           <br />
           例如「6:00-7:00 早读」「7:00-7:30 早餐」…
         </p>
-        <Button onClick={onEditSlots}>去设置时间槽</Button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="overflow-x-auto pb-6">
-      <div className="min-w-[680px] px-2 pt-2">
-        {/* 表头：周一~周日，今天列高亮 */}
-        <div className="grid grid-cols-[92px_repeat(7,1fr)] gap-1">
-          <div />
-          {WEEK_HEADER.map((w, i) => (
-            <div
-              key={w}
-              className={cn(
-                "rounded-md py-1 text-center text-xs",
-                i + 1 === todayWd
-                  ? "bg-primary font-medium text-primary-foreground"
-                  : "text-muted-foreground"
-              )}
+      ) : (
+        slots.map((slot) => (
+          <div key={slot.id} className={cn("mt-1", gridCols)}>
+            <button
+              onClick={() => setEditingSlot(slot)}
+              className="flex cursor-pointer flex-col justify-center rounded-md bg-secondary/60 px-1.5 py-1 text-left hover:bg-secondary"
             >
-              周{w}
-            </div>
-          ))}
-        </div>
-
-        {slots.map((slot) => (
-          <div key={slot.id} className="mt-1 grid grid-cols-[92px_repeat(7,1fr)] gap-1">
-            <div className="flex flex-col justify-center rounded-md bg-secondary/60 px-1.5 py-1">
-              <span className="truncate text-xs font-medium">{slot.label}</span>
+              <span className="break-words text-xs font-medium">{slot.label}</span>
               <span className="text-[10px] leading-3.5 text-muted-foreground">
                 {slot.start_time}-{slot.end_time}
               </span>
-            </div>
+            </button>
             {[1, 2, 3, 4, 5, 6, 7].map((wd) => {
               const course = courseMap.get(`${slot.id}-${wd}`);
               const isNow = wd === todayWd && currentSlot?.id === slot.id;
@@ -89,14 +96,14 @@ export default function WeekGrid({ onEditSlots }: { onEditSlots: () => void }) {
                   key={wd}
                   onClick={() => setTarget({ slot, weekday: wd, course })}
                   className={cn(
-                    "min-h-14 cursor-pointer rounded-md border px-1 py-1 text-center transition-colors",
+                    "min-h-14 min-w-0 cursor-pointer rounded-md border px-1 py-1 text-center transition-colors",
                     course ? "border-transparent" : "border-dashed bg-card hover:bg-accent/50",
                     isNow && "ring-2 ring-inset ring-primary"
                   )}
                   style={course?.color ? { backgroundColor: course.color } : undefined}
                 >
                   {course && (
-                    <span className="line-clamp-2 text-xs leading-4 text-slate-800">
+                    <span className="break-words text-xs leading-4 text-slate-800">
                       {course.name}
                     </span>
                   )}
@@ -104,13 +111,15 @@ export default function WeekGrid({ onEditSlots }: { onEditSlots: () => void }) {
               );
             })}
           </div>
-        ))}
-        <p className="mt-2 px-1 text-xs text-muted-foreground">
-          点空格排课，点已有课程可修改或清空
-        </p>
-      </div>
+        ))
+      )}
+      <p className="mt-2 px-1 text-xs text-muted-foreground">
+        点空格排课，点已有课程可修改或清空，点左侧时间槽可调整或删除
+        <span className="md:hidden">；屏幕较窄时建议横屏查看</span>
+      </p>
 
       <CourseCellDialog target={target} onClose={() => setTarget(null)} />
+      <SlotEditDialog slot={editingSlot} onClose={() => setEditingSlot(null)} />
     </div>
   );
 }

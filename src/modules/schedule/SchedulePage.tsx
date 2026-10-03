@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, ListPlus, Trash2, Pencil, Check } from "lucide-react";
+import { ChevronDown, Trash2, Pencil, Check } from "lucide-react";
 import { useScheduleStore } from "../../stores/schedule";
 import { cn } from "../../lib/utils";
 import {
@@ -11,13 +11,11 @@ import {
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import WeekGrid from "./WeekGrid";
-import SlotManager from "./SlotManager";
 
 export default function SchedulePage() {
   const loaded = useScheduleStore((s) => s.loaded);
   const activeId = useScheduleStore((s) => s.activeId);
   const semesters = useScheduleStore((s) => s.semesters);
-  const [view, setView] = useState<"grid" | "slots">("grid");
   const [semesterOpen, setSemesterOpen] = useState(false);
 
   useEffect(() => {
@@ -41,20 +39,10 @@ export default function SchedulePage() {
           <ChevronDown className="h-4 w-4 text-muted-foreground" />
         </button>
         <div className="flex-1" />
-        {view === "grid" ? (
-          <Button size="sm" variant="outline" onClick={() => setView("slots")}>
-            <ListPlus className="mr-1 h-4 w-4" />
-            时间槽
-          </Button>
-        ) : (
-          <Button size="sm" variant="outline" onClick={() => setView("grid")}>
-            返回课表
-          </Button>
-        )}
       </div>
 
       <div className="flex-1">
-        {view === "grid" ? <WeekGrid onEditSlots={() => setView("slots")} /> : <SlotManager />}
+        <WeekGrid />
       </div>
 
       <SemesterDialog open={semesterOpen} onClose={() => setSemesterOpen(false)} />
