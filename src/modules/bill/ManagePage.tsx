@@ -123,7 +123,7 @@ function AccountSection() {
             className="h-8"
           />
           <Input
-            placeholder="初始金额(元)"
+            placeholder="初始金额"
             inputMode="decimal"
             value={newAmount}
             onChange={(e) => setNewAmount(e.target.value)}
