@@ -42,7 +42,7 @@ export default function WeekGrid() {
   }, [courses]);
 
   // 一屏放下七天：7 列 minmax(0,1fr) 均分，不限制最小宽度
-  const gridCols = "grid grid-cols-[92px_repeat(7,minmax(0,1fr))] gap-1";
+  const gridCols = "grid grid-cols-[64px_repeat(7,minmax(0,1fr))] gap-1";
 
   return (
     <div className="px-2 pt-2 pb-6">
@@ -96,14 +96,14 @@ export default function WeekGrid() {
                   key={wd}
                   onClick={() => setTarget({ slot, weekday: wd, course })}
                   className={cn(
-                    "min-h-14 min-w-0 cursor-pointer rounded-md border px-1 py-1 text-center transition-colors",
+                    "min-h-10 min-w-0 cursor-pointer rounded-md border px-1 py-0.5 text-center transition-colors",
                     course ? "border-transparent" : "border-dashed bg-card hover:bg-accent/50",
                     isNow && "ring-2 ring-inset ring-primary"
                   )}
                   style={course?.color ? { backgroundColor: course.color } : undefined}
                 >
                   {course && (
-                    <span className="break-words text-xs leading-4 text-slate-800">
+                    <span className="break-words text-xs leading-1 text-slate-800">
                       {course.name}
                     </span>
                   )}

@@ -128,7 +128,7 @@ function FestivalManager() {
       <CardHeader>
         <CardTitle>自定义节日</CardTitle>
         <CardDescription>
-          如「母亲生日 农历五月初八」，会显示在日历对应格子上
+          如「母亲生日 农历八月十三」，会显示在日历对应格子上
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">

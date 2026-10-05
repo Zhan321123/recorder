@@ -104,9 +104,12 @@ export default function SettingsPage() {
           <CardTitle>关于</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
-          <p>Recorder v0.1.0 · 纯离线，无账号无同步</p>
+          <p>- Recorder v0.1.0</p>
           <p className="mt-1">
-            Windows 数据位置：%APPDATA%\com.recorder.app\recorder.db
+            - 纯单机离线，无账号，无上传服务器，同步数据依靠导出导入
+          </p>
+          <p className="mt-1">
+            - Windows 数据位置：%APPDATA%\com.recorder.app\recorder.db
           </p>
         </CardContent>
       </Card>

@@ -1,70 +1,36 @@
 # Recorder
 
-纯离线的个人记录应用（无账号、无服务器、无同步），一套代码跑 **Android + Windows**。
+<img src="https://img.shields.io/badge/npm-11.17.0-yellow?logo=npm"><img src="https://img.shields.io/badge/d3-7.9.0-green?logo=d3"><img src="https://img.shields.io/badge/react-18.3.1-blue?logo=react"><img src="https://img.shields.io/badge/webview-101-pink?logo=webview"><img src="https://img.shields.io/badge/Cargo-1.97.0-red?logo=rust"><img src="https://img.shields.io/badge/Tauri-2.6.3-purple?logo=tauri"><img src="https://img.shields.io/badge/tailwindcss-3.7.0-purple?logo=tailwindcss"><img src="https://img.shields.io/badge/shadcnui-1,2-orange?logo=shadcnui">
 
-三个模块：
+<img src="https://img.shields.io/badge/webview-blue?style=for-the-badge"><img src="https://img.shields.io/badge/windows-blue?style=for-the-badge"><img src="https://img.shields.io/badge/android-blue?style=for-the-badge">
 
-- **账单记录器** —— 多账户流水 + 自定义分类 + 转账 + d3 统计
-- **班时记录器** —— 月历点选记班，农历/节日/法定班休，工时设置按生效日期分段
-- **课程表编辑器** —— 多学期、自定义时间槽、周网格排课、当前时间高亮
-
-数据用 SQLite 持久化，备份为 JSON 导出/导入（全量替换，不需要 CSV）。
+<img src="assets/bill.png" width="128"><img src="assets/billChart.png" width="128"><img src="assets/classSchedule.png" width="128"><img src="assets/workingCalendar.png" width="128">
 
 > 开发文档：
 > - [开发链路](docs/开发链路.md) —— 环境搭建 → 开发 → 模拟器调试与自动化验证 → 打包发布的完整链路实录
-> - [链路验证笔记](docs/链路验证笔记.md) —— 里程碑一 spike 结论：Tauri 权限、构建环境、雷电模拟器的坑与对策
+> - [链路验证笔记](docs/链路验证笔记.md) —— Tauri 权限、构建环境、雷电模拟器的坑与对策
 
 ## 功能说明
 
-### 账单
-
-- **流水页**：月份切换、当月收/支/结余汇总、按日分组列表（含转账记录）；右下 FAB 记一笔
-- **记一笔**：支出/收入/转账三模式；金额（元→分整数存储）、分类网格、账户、日期、备注；点已有记录可编辑/删除
-- **统计页**：d3 绘制——本月支出分类环形图、近 6 个月收支分组柱状图、近 30 天支出趋势折线
-- **管理页**：账户（新增时可设初始金额，实时余额 = 初始金额 + 流入 − 流出 ± 转账、改名、归档）、分类（收支两类增删改）；被引用的账户/分类禁止删除，提示归档
-
-### 班时
-
-- **月历**：公历 + 农历（lunar-javascript）；农历日/公历农历节日/节气/纪念日**一行一个**全部显示；法定班/休角标（库内置国务院调休数据，未来年份无数据时仅少个角标）；今天高亮；左右/上下滑动或滚轮切换月份
-- **记班**：点未标记日 = 上班（按当日生效设置**快照**工时）；点已标记日 = 详情（改工时/备注/取消上班）
-- **工时设置**：每天工时；保存 = 插入生效日期为今天的新设置行，**过去的记录仍按当时设置快照**（设置历史可见）
-- **三段统计**：本月/本年/全部各自的出勤天数、总工时（口径跟随查看月份）
-- **自定义节日**：名称 + 农历/公历 + 月日（如「母亲生日 农历八月二十」），日历格子内独立一行显示
-
-### 课程表
-
-- **多学期**：新建/切换/重命名/删除（删除级联其时间槽和课程，有确认），当前学期记忆
-- **时间槽**：把一天划分为若干段（如「6:00-7:00 早读」「7:00-7:30 早餐」）；左上角 + 新增，按开始时间**自动排序**，时间段冲突（区间重叠）拒绝保存、首尾相接允许；点槽位标签可调整或删除（删槽级联删课程，有确认）
-- **周网格**：行 = 时间槽，列 = 周一~周日（今天列表头高亮）；一屏放下七天不限最小宽度，长名称自动撑高行高，窄屏建议横屏；点空格排课（名称 + 9 色色板），点已有课编辑/清空
-- **当前高亮**：每分钟刷新，今天列 × 当前时间落入的槽位格描边高亮
-
-### 设置页
-
-- **导出备份**：全量数据 → JSON 文件（Android 走系统 SAF 保存框，Windows 走系统另存为）
-- **导入备份**：选 JSON → 校验格式 → 确认框（显示导出时间、各表条数，警告文案）→ **全量替换** → 前端重载
-- 建议导入前先导出当前数据
-
-## 备份格式 v1
-
-```json
-{
-  "app": "recorder",
-  "backupVersion": 1,
-  "exportedAt": "ISO-8601 时间",
-  "data": {
-    "billAccounts": [], "billCategories": [], "billRecords": [], "billTransfers": [],
-    "workDays": [], "workSettings": [], "customFestivals": [],
-    "semesters": [], "scheduleSlots": [], "scheduleCourses": [],
-    "appMeta": { "schema_version": "1", "active_semester_id": "1" }
-  }
-}
-```
-
-- 导入时校验 `app`/`backupVersion`/各表数组结构，不符即拒绝
-- 金额一律**整数分**（`amount_cents`/`rate_cents`/`initial_cents`），杜绝浮点误差
-- 列随 schema 演进可能增减：增加时（如 v2 给账户加了 `initial_cents`）旧备份缺列按默认值导入；精简时（v3 起班时不再计薪，`work_settings` 去掉 `pay_type`/`rate_cents`）旧备份多余列按白名单忽略；版本号不变
-- `work_days.hours` 是标记时的工时快照；`work_settings` 按 `effective_from` 保留历史，二者共同实现"改设置不影响过去"
-- 表间引用（`account_id`/`slot_id` 等）保留原 id 原样恢复，父表先插
+- 账单
+  - **流水页**：月份切换、当月收/支/结余汇总、按日分组列表（含转账记录）；右下 FAB 记一笔
+  - **记一笔**：支出/收入/转账三模式；金额（元→分整数存储）、分类网格、账户、日期、备注；点已有记录可编辑/删除
+  - **统计页**：d3 绘制——本月支出分类环形图、近 6 个月收支分组柱状图、近 30 天支出趋势折线
+  - **管理页**：账户（新增时可设初始金额，实时余额 = 初始金额 + 流入 − 流出 ± 转账、改名、归档）、分类
+- 班时
+  - **月历**：公历 + 农历；农历日/公历农历节日/节气/纪念日；法定班/休角标；今天高亮
+  - **记班**：点未标记日 = 上班；点已标记日 = 详情（改工时/备注/取消上班）
+  - **工时设置**：每天工时；保存 = 插入生效日期为今天的新设置行，过去的记录仍按当时设置快照
+  - **三段统计**：本月/本年/全部各自的出勤天数、总工时
+  - **自定义节日**：名称 + 农历/公历 + 月日（如「母亲生日 农历八月十三」），日历格子内独立一行显示
+- 课程表
+  - **多学期**：新建/切换/重命名/删除，当前学期记忆
+  - **时间槽**：把一天划分为若干段；左上角 + 新增，按开始时间自动排序，时间段冲突（区间重叠）拒绝保存、首尾相接允许
+  - **周网格**：行 = 时间槽，列 = 周一~周日；一屏放下七天不限最小宽度，长名称自动撑高行高，窄屏建议横屏；点空格排课，点已有课编辑/清空
+  - **当前高亮**：每分钟刷新，今天列 × 当前时间落入的槽位格描边高亮
+- 设置页
+  - **导出备份**：全量数据 → JSON 文件（Android 走系统 SAF 保存框，Windows 走系统另存为）
+  - **导入备份**：选 JSON → 校验格式 → 确认框 → **全量替换** → 前端重载
 
 ## 技术栈
 
