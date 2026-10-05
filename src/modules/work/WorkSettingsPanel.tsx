@@ -105,6 +105,7 @@ function FestivalManager() {
   const [month, setMonth] = useState("");
   const [day, setDay] = useState("");
   const [error, setError] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   async function onAdd() {
     setError("");
@@ -119,6 +120,8 @@ function FestivalManager() {
     setMonth("");
     setDay("");
   }
+
+  const deleting = festivals.find((f) => f.id === confirmDeleteId);
 
   return (
     <Card>
@@ -191,13 +194,38 @@ function FestivalManager() {
                   </span>
                   <button
                     className="cursor-pointer text-xs text-destructive"
-                    onClick={() => deleteFestival(f.id)}
+                    onClick={() => setConfirmDeleteId(f.id)}
                   >
                     删除
                   </button>
                 </span>
               </div>
             ))}
+          </div>
+        )}
+
+        {deleting && (
+          <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">
+            <p>
+              删除节日「{deleting.name}」（
+              {deleting.cal_type === "lunar" ? "农历" : "公历"} {deleting.month}月
+              {deleting.day}日），不可恢复。
+            </p>
+            <div className="mt-2 flex justify-end gap-2">
+              <Button size="sm" variant="outline" onClick={() => setConfirmDeleteId(null)}>
+                取消
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={async () => {
+                  await deleteFestival(deleting.id);
+                  setConfirmDeleteId(null);
+                }}
+              >
+                确认删除
+              </Button>
+            </div>
           </div>
         )}
       </CardContent>

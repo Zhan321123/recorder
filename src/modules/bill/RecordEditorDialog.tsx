@@ -42,6 +42,7 @@ export default function RecordEditorDialog({
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const activeAccounts = accounts.filter((a) => !a.archived);
 
@@ -49,6 +50,7 @@ export default function RecordEditorDialog({
   useEffect(() => {
     if (!open) return;
     setError("");
+    setConfirmDelete(false);
     if (editing?.kind === "record") {
       const r = editing.record;
       setMode(r.type);
@@ -278,16 +280,33 @@ export default function RecordEditorDialog({
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        <div className="flex gap-2">
-          {editing && (
-            <Button variant="destructive" onClick={onDelete} disabled={busy}>
-              删除
+        {confirmDelete && editing ? (
+          <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">
+            <p>
+              删除这条{editing.kind === "record" ? "记录" : "转账"}
+              （{date} ¥{amount || "0"}），不可恢复。
+            </p>
+            <div className="mt-2 flex justify-end gap-2">
+              <Button size="sm" variant="outline" onClick={() => setConfirmDelete(false)}>
+                取消
+              </Button>
+              <Button size="sm" variant="destructive" onClick={onDelete} disabled={busy}>
+                确认删除
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            {editing && (
+              <Button variant="destructive" onClick={() => setConfirmDelete(true)} disabled={busy}>
+                删除
+              </Button>
+            )}
+            <Button onClick={onSave} disabled={busy} className="flex-1">
+              保存
             </Button>
-          )}
-          <Button onClick={onSave} disabled={busy} className="flex-1">
-            保存
-          </Button>
-        </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

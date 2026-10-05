@@ -42,12 +42,14 @@ export default function CourseCellDialog({
   const [color, setColor] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
 
   useEffect(() => {
     if (target) {
       setName(target.course?.name ?? "");
       setColor(target.course?.color ?? "");
       setError("");
+      setConfirmClear(false);
     }
   }, [target]);
 
@@ -143,16 +145,30 @@ export default function CourseCellDialog({
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        <div className="flex gap-2">
-          {course && (
-            <Button variant="destructive" onClick={onClear} disabled={busy}>
-              清空
+        {confirmClear && course ? (
+          <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">
+            <p>清空「{course.name}」这门课，不可恢复。</p>
+            <div className="mt-2 flex justify-end gap-2">
+              <Button size="sm" variant="outline" onClick={() => setConfirmClear(false)}>
+                取消
+              </Button>
+              <Button size="sm" variant="destructive" onClick={onClear} disabled={busy}>
+                确认清空
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            {course && (
+              <Button variant="destructive" onClick={() => setConfirmClear(true)} disabled={busy}>
+                清空
+              </Button>
+            )}
+            <Button onClick={onSave} disabled={busy} className="flex-1">
+              保存
             </Button>
-          )}
-          <Button onClick={onSave} disabled={busy} className="flex-1">
-            保存
-          </Button>
-        </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

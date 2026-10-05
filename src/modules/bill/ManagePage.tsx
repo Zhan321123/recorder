@@ -23,6 +23,7 @@ function AccountSection() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
   const [error, setError] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   async function onAdd() {
     setError("");
@@ -39,8 +40,12 @@ function AccountSection() {
   }
 
   async function onDelete(id: number) {
-    setError((await store.deleteAccount(id)) ?? "");
+    const err = await store.deleteAccount(id);
+    if (err) setError(err);
+    setConfirmDeleteId(null);
   }
+
+  const deleting = accounts.find((a) => a.id === confirmDeleteId);
 
   const active = accounts.filter((a) => !a.archived);
   const archived = accounts.filter((a) => a.archived);
@@ -102,7 +107,10 @@ function AccountSection() {
         </button>
         <button
           className="cursor-pointer px-1 text-xs text-destructive"
-          onClick={() => onDelete(id)}
+          onClick={() => {
+            setError("");
+            setConfirmDeleteId(id);
+          }}
         >
           删除
         </button>
@@ -140,6 +148,19 @@ function AccountSection() {
         {archived.map((a) => (
           <Row key={a.id} id={a.id} name={a.name} />
         ))}
+        {deleting && (
+          <div className="m-3 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">
+            <p>删除账户「{deleting.name}」，不可恢复。</p>
+            <div className="mt-2 flex justify-end gap-2">
+              <Button size="sm" variant="outline" onClick={() => setConfirmDeleteId(null)}>
+                取消
+              </Button>
+              <Button size="sm" variant="destructive" onClick={() => onDelete(deleting.id)}>
+                确认删除
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
       {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
     </section>
@@ -154,6 +175,7 @@ function CategorySection() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
   const [error, setError] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   const list = categories.filter((c) => c.type === type);
 
@@ -165,8 +187,12 @@ function CategorySection() {
   }
 
   async function onDelete(id: number) {
-    setError((await store.deleteCategory(id)) ?? "");
+    const err = await store.deleteCategory(id);
+    if (err) setError(err);
+    setConfirmDeleteId(null);
   }
+
+  const deleting = categories.find((c) => c.id === confirmDeleteId);
 
   return (
     <section>
@@ -240,12 +266,28 @@ function CategorySection() {
               </button>
               <button
                 className="cursor-pointer px-1 text-xs text-destructive"
-                onClick={() => onDelete(c.id)}
+                onClick={() => {
+                  setError("");
+                  setConfirmDeleteId(c.id);
+                }}
               >
                 删除
               </button>
             </div>
           )
+        )}
+        {deleting && (
+          <div className="m-3 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">
+            <p>删除分类「{deleting.name}」，不可恢复。</p>
+            <div className="mt-2 flex justify-end gap-2">
+              <Button size="sm" variant="outline" onClick={() => setConfirmDeleteId(null)}>
+                取消
+              </Button>
+              <Button size="sm" variant="destructive" onClick={() => onDelete(deleting.id)}>
+                确认删除
+              </Button>
+            </div>
+          </div>
         )}
       </div>
       {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
